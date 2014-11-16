@@ -10,19 +10,22 @@ class Heater:
     MAX_TEMP = 30  # degrees celcius
     MAX_VPOS = 255 # valve pos 8 bit precision
     MAX_BATT = 100 # battery level
+    index    = 0   # static index
+
     def __init__(self):
-        self.identifier = id(self)
+        self.identifier = Heater.index
         self.temp_cur = 0.0
         self.temp_des = 0.0
         self.valve_pos = 0
         self.battery_level = 0
         self.random()
+        Heater.index += 1
 
     def random(self):
-        self.valve_pos = random.randint(0, self.MAX_VPOS) 
-        self.temp_cur = random.uniform(self.MIN_TEMP, self.MAX_TEMP)
-        self.temp_des = random.uniform(self.MIN_TEMP, self.MAX_TEMP)
-        self.battery_level = random.randint(0, self.MAX_BATT)
+        self.valve_pos = random.randint(0, Heater.MAX_VPOS) 
+        self.temp_cur = random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP)
+        self.temp_des = random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP)
+        self.battery_level = random.randint(0, Heater.MAX_BATT)
 
     def encode(self):
         return { "id":self.identifier, "valve":self.valve_pos,
@@ -98,7 +101,7 @@ if __name__ == "__main__":
             rm(heaters) 
             pub_state(client, heaters)
         # Add heater
-        elif r < 0.05:
+        elif r < 0.1:
             add(heaters)
             pub_state(client, heaters)
         # Update vars of a heater
