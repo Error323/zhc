@@ -70,7 +70,8 @@ def set_temp(client, heaters, idx, temp):
         print "Error: Invalid heater id {}".format(idx)
         return
     heaters[idx].temp_des = temp
-    client.publish("ztc/heater/{}".format(idx))
+    client.publish("ztc/heater/{}".format(idx),
+            payload=json.dumps(h.encode()), retain=True)
 
 
 
