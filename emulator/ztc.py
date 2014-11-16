@@ -5,6 +5,9 @@ import json
 import time
 import random
 
+# The ztc protocol version
+ZTC_VERSION = 1
+
 class Heater:
     MIN_TEMP = 8   # degrees celcius
     MAX_TEMP = 30  # degrees celcius
@@ -24,7 +27,6 @@ class Heater:
     def random(self):
         self.valve_pos = random.randint(0, Heater.MAX_VPOS) 
         self.temp_cur = random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP)
-        self.temp_des = random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP)
         self.battery_level = random.randint(0, Heater.MAX_BATT)
 
     def encode(self):
@@ -47,63 +49,108 @@ def message(client, heaters, msg):
     @param msg, the incomming message
     """
     print msg.topic + " " + str(msg.payload)
+    if "ztc/set" in msg.topic:
+        data = json.loads(msg.payload)
+        for i,t in data.items():
+           set_temp(client, heaters, int(i), t)
 
-def set_temp(heaters, idx, temp):
+
+def set_temp(client, heaters, idx, temp):
+    """
+    Set desired temperature on a heater and publish the result
+
+    @param client, the active mqtt client
+    @param heaters, the state of the heaters
+    @param idx, the heater index
+    @param temp, the new temperature
+    """
     if not heaters.has_key(idx):
         print "Error: Invalid heater id {}".format(idx)
         return
-
     heaters[idx].temp_des = temp
+    client.publish("ztc/heater/{}".format(idx))
 
-def add(heaters):
+
+
+def register(client, heaters):
+    """
+    Publish the active heater identifiers
+
+    @param client, the active mqtt client
+    @param heaters, the state of the heaters
+    """
+    identifiers = []
+    for h in heaters.values():
+        identifiers.append(h.identifier)
+    client.publish("ztc/heaters", qos=2,
+            payload=json.dumps({"version":ZTC_VERSION, "heaters":identifiers}),
+            retain=True)
+
+
+def add(client, heaters):
+    """
+    Add a heater, publish it and re-register
+
+    @param client, the active mqtt client
+    @param heaters, the state of the heaters
+    """
     h = Heater()
     heaters[h.identifier] = h
+    client.publish("ztc/heater/{}".format(h.identifier),
+            payload=json.dumps(h.encode()), retain=True)
+    register(client, heaters)
 
-def rm(heaters):
+
+def rm(client, heaters):
+    """
+    Remove a heater and re-register
+
+    @param client, the active mqtt client
+    @param heaters, the state of the heaters
+    """
     if len(heaters) == 0:
         return
-
     k = random.choice(heaters.keys())
     del heaters[k]
+    register(client, heaters)
 
-def pub_state(client, heaters):
-    state = []
-    for h in heaters.values():
-        state.append(h.encode())
-    client.publish("ztc/state", qos=2, payload=json.dumps(state), retain=True)
 
 def update(client, heaters):
+    """
+    Emulate random heater updates and publish result
+
+    @param client, the active mqtt client
+    @param heaters, the state of the heaters
+    """
     if len(heaters) == 0:
         return
-
     n = random.randint(1, len(heaters))
     for i in range(n):
-        k = random.choice(heaters.keys())
-        heaters[k].random()
-        client.publish("ztc/update", qos=0, payload=json.dumps(heaters[k].encode()))
+        h = random.choice(heaters.values())
+        h.random()
+        client.publish("ztc/heater/{}".format(h.identifier),
+                payload=json.dumps(h.encode()), retain=True)
+
 
 if __name__ == "__main__":
     heaters = {}
 
     client = mqtt.Client(clean_session=True, userdata=heaters, protocol=mqtt.MQTTv31)
-    client.subscribe([("ztc/set", 2)])
     client.on_message = message
     client.connect("127.0.0.1", 1883, 60)
     client.loop_start()
+    client.subscribe(("ztc/set", 2))
 
-    add(heaters)
-    pub_state(client, heaters)
+    add(client, heaters)
     while True:
         r = random.random()
 
         # Remove heater
         if r < 0.01:
-            rm(heaters) 
-            pub_state(client, heaters)
+            rm(client, heaters) 
         # Add heater
         elif r < 0.1:
-            add(heaters)
-            pub_state(client, heaters)
+            add(client, heaters)
         # Update vars of a heater
         elif r < 0.2:
             update(client, heaters)
