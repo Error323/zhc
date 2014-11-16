@@ -5,8 +5,8 @@ import json
 import time
 import random
 
-# The ztc protocol version
-ZTC_VERSION = 1
+# The zhc protocol version
+ZHC_VERSION = 1
 
 class Heater:
     MIN_TEMP = 8   # degrees celcius
@@ -53,6 +53,8 @@ def message(client, heaters, msg):
         data = json.loads(msg.payload)
         for i,t in data.items():
            set_temp(client, heaters, int(i), t)
+    else:
+        print "Error: Invalid msg", msg
 
 
 def set_temp(client, heaters, idx, temp):
@@ -83,7 +85,7 @@ def register(client, heaters):
     for h in heaters.values():
         identifiers.append(h.identifier)
     client.publish("ztc/heaters", qos=2,
-            payload=json.dumps({"version":ZTC_VERSION, "heaters":identifiers}),
+            payload=json.dumps({"version":ZHC_VERSION, "heaters":identifiers}),
             retain=True)
 
 
