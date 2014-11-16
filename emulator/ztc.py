@@ -5,12 +5,11 @@ import json
 import time
 import random
 
-MIN_TEMP = 8   # degrees celcius
-MAX_TEMP = 30  # degrees celcius
-MAX_VPOS = 255 # valve pos 8 bit precision
-MAX_BATT = 100 # battery level
-
 class Heater:
+    MIN_TEMP = 8   # degrees celcius
+    MAX_TEMP = 30  # degrees celcius
+    MAX_VPOS = 255 # valve pos 8 bit precision
+    MAX_BATT = 100 # battery level
     def __init__(self):
         self.identifier = id(self)
         self.temp_cur = 0.0
@@ -20,19 +19,15 @@ class Heater:
         self.random()
 
     def random(self):
-        self.valve_pos = random.randint(0, MAX_VPOS) 
-        self.temp_cur = random.uniform(MIN_TEMP, MAX_TEMP)
-        self.temp_des = random.uniform(MIN_TEMP, MAX_TEMP)
-        self.battery_level = random.randint(0, MAX_BATT)
+        self.valve_pos = random.randint(0, self.MAX_VPOS) 
+        self.temp_cur = random.uniform(self.MIN_TEMP, self.MAX_TEMP)
+        self.temp_des = random.uniform(self.MIN_TEMP, self.MAX_TEMP)
+        self.battery_level = random.randint(0, self.MAX_BATT)
 
-    def __repr__(self):
-        return json.dumps({
-            "id":self.identifier,
-            "valve":self.valve_pos,
-            "temp_cur":self.temp_cur,
-            "temp_des":self.temp_des,
-            "battery":self.battery_level
-            })
+    def encode(self):
+        return { "id":self.identifier, "valve":self.valve_pos,
+                "temp_cur":self.temp_cur, "temp_des":self.temp_des,
+                "battery":self.battery_level }
 
     def __str__(self):
         return "{:x} {} {} {:.1f} {:.1f}".format(self.identifier,
@@ -50,6 +45,13 @@ def message(client, heaters, msg):
     """
     print msg.topic + " " + str(msg.payload)
 
+def set_temp(heaters, idx, temp):
+    if not heaters.has_key(idx):
+        print "Error: Invalid heater id {}".format(idx)
+        return
+
+    heaters[idx].temp_des = temp
+
 def add(heaters):
     h = Heater()
     heaters[h.identifier] = h
@@ -61,7 +63,13 @@ def rm(heaters):
     k = random.choice(heaters.keys())
     del heaters[k]
 
-def update(heaters):
+def pub_state(client, heaters):
+    state = []
+    for h in heaters.values():
+        state.append(h.encode())
+    client.publish("ztc/state", qos=2, payload=json.dumps(state), retain=True)
+
+def update(client, heaters):
     if len(heaters) == 0:
         return
 
@@ -69,30 +77,35 @@ def update(heaters):
     for i in range(n):
         k = random.choice(heaters.keys())
         heaters[k].random()
+        client.publish("ztc/update", qos=0, payload=json.dumps(heaters[k].encode()))
 
 if __name__ == "__main__":
     heaters = {}
 
-    client = mqtt.Client("emulator", True, heaters)
+    client = mqtt.Client(clean_session=True, userdata=heaters, protocol=mqtt.MQTTv31)
+    client.subscribe([("ztc/set", 2)])
     client.on_message = message
     client.connect("127.0.0.1", 1883, 60)
     client.loop_start()
 
     add(heaters)
+    pub_state(client, heaters)
     while True:
         r = random.random()
 
         # Remove heater
         if r < 0.01:
             rm(heaters) 
+            pub_state(client, heaters)
         # Add heater
-        elif r < 0.04 and len(heaters) > 0:
+        elif r < 0.05:
             add(heaters)
+            pub_state(client, heaters)
         # Update vars of a heater
-        elif r < 0.2 and len(heaters) > 0:
-            update(heaters)
+        elif r < 0.2:
+            update(client, heaters)
 
-        print "heaters: {}".format(len(heaters))
+        print "active heaters: {}".format(len(heaters))
         for h in heaters.values():
             print "  " + str(h)
         print ""
