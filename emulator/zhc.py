@@ -155,7 +155,7 @@ if __name__ == "__main__":
         elif r < 0.1:
             add(client, heaters)
         # Update vars of a heater
-        elif r < 0.2:
+        elif r < 0.3:
             update(client, heaters)
 
         print "active heaters: {}".format(len(heaters))
