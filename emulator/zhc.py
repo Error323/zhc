@@ -26,7 +26,7 @@ class Heater:
 
     def random(self):
         self.valve_pos = random.randint(0, Heater.MAX_VPOS) 
-        self.temp_cur = random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP)
+        self.temp_cur = round(random.uniform(Heater.MIN_TEMP, Heater.MAX_TEMP), 1)
         self.battery_level = random.randint(0, Heater.MAX_BATT)
 
     def encode(self):
@@ -69,7 +69,7 @@ def set_temp(client, heaters, idx, temp):
     if not heaters.has_key(idx):
         print "Error: Invalid heater id {}".format(idx)
         return
-    heaters[idx].temp_des = temp
+    heaters[idx].temp_des = round(temp, 1)
     client.publish("zhc/heater/{}".format(idx),
             payload=json.dumps(h.encode()), retain=True)
 
@@ -144,6 +144,11 @@ if __name__ == "__main__":
     client.loop_start()
     client.subscribe(("zhc/set", 2))
 
+    client.publish("zhc/static",
+            payload=json.dumps({"min_temp":Heater.MIN_TEMP,
+                "max_temp":Heater.MAX_TEMP, "min_vpos":0,
+                "max_vpos":Heater.MAX_VPOS, "min_batt":0,
+                "max_batt":Heater.MAX_BATT}), retain=True, qos=2)
     add(client, heaters)
     while True:
         r = random.random()
