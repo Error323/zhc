@@ -74,25 +74,9 @@ def set_temp(client, heaters, idx, temp):
             payload=json.dumps(h.encode()), retain=True)
 
 
-
-def register(client, heaters):
-    """
-    Publish the active heater identifiers
-
-    @param client, the active mqtt client
-    @param heaters, the state of the heaters
-    """
-    identifiers = []
-    for h in heaters.values():
-        identifiers.append(h.identifier)
-    client.publish("zhc/heaters", qos=2,
-            payload=json.dumps({"version":ZHC_VERSION, "heaters":identifiers}),
-            retain=True)
-
-
 def add(client, heaters):
     """
-    Add a heater, publish it and re-register
+    Add a heater and publish it
 
     @param client, the active mqtt client
     @param heaters, the state of the heaters
@@ -101,12 +85,11 @@ def add(client, heaters):
     heaters[h.identifier] = h
     client.publish("zhc/heater/{}".format(h.identifier),
             payload=json.dumps(h.encode()), retain=True)
-    register(client, heaters)
 
 
 def rm(client, heaters):
     """
-    Remove a heater and re-register
+    Remove a heater and publish it
 
     @param client, the active mqtt client
     @param heaters, the state of the heaters
@@ -114,8 +97,9 @@ def rm(client, heaters):
     if len(heaters) == 0:
         return
     k = random.choice(heaters.keys())
+    client.publish("zhc/heater/{}".format(h.identifier),
+        payload=None, retain=True)
     del heaters[k]
-    register(client, heaters)
 
 
 def update(client, heaters):
@@ -138,7 +122,8 @@ def update(client, heaters):
 if __name__ == "__main__":
     heaters = {}
 
-    client = mqtt.Client(clean_session=True, userdata=heaters, protocol=mqtt.MQTTv31)
+    client = mqtt.Client(client_id="emulator", clean_session=True,
+        userdata=heaters, protocol=mqtt.MQTTv31)
     client.on_message = message
     client.connect("127.0.0.1", 1883, 60)
     client.loop_start()
@@ -149,6 +134,7 @@ if __name__ == "__main__":
                 "max_temp":Heater.MAX_TEMP, "min_vpos":0,
                 "max_vpos":Heater.MAX_VPOS, "min_batt":0,
                 "max_batt":Heater.MAX_BATT}), retain=True, qos=2)
+
     add(client, heaters)
     while True:
         r = random.random()
