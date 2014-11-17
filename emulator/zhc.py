@@ -49,7 +49,7 @@ def message(client, heaters, msg):
     @param msg, the incomming message
     """
     print msg.topic + " " + str(msg.payload)
-    if "ztc/set" in msg.topic:
+    if "zhc/set" in msg.topic:
         data = json.loads(msg.payload)
         for i,t in data.items():
            set_temp(client, heaters, int(i), t)
@@ -70,7 +70,7 @@ def set_temp(client, heaters, idx, temp):
         print "Error: Invalid heater id {}".format(idx)
         return
     heaters[idx].temp_des = temp
-    client.publish("ztc/heater/{}".format(idx),
+    client.publish("zhc/heater/{}".format(idx),
             payload=json.dumps(h.encode()), retain=True)
 
 
@@ -85,7 +85,7 @@ def register(client, heaters):
     identifiers = []
     for h in heaters.values():
         identifiers.append(h.identifier)
-    client.publish("ztc/heaters", qos=2,
+    client.publish("zhc/heaters", qos=2,
             payload=json.dumps({"version":ZHC_VERSION, "heaters":identifiers}),
             retain=True)
 
@@ -99,7 +99,7 @@ def add(client, heaters):
     """
     h = Heater()
     heaters[h.identifier] = h
-    client.publish("ztc/heater/{}".format(h.identifier),
+    client.publish("zhc/heater/{}".format(h.identifier),
             payload=json.dumps(h.encode()), retain=True)
     register(client, heaters)
 
@@ -131,7 +131,7 @@ def update(client, heaters):
     for i in range(n):
         h = random.choice(heaters.values())
         h.random()
-        client.publish("ztc/heater/{}".format(h.identifier),
+        client.publish("zhc/heater/{}".format(h.identifier),
                 payload=json.dumps(h.encode()), retain=True)
 
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     client.on_message = message
     client.connect("127.0.0.1", 1883, 60)
     client.loop_start()
-    client.subscribe(("ztc/set", 2))
+    client.subscribe(("zhc/set", 2))
 
     add(client, heaters)
     while True:
