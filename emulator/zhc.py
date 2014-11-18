@@ -97,7 +97,7 @@ def rm(client, heaters):
     if len(heaters) == 0:
         return
     k = random.choice(heaters.keys())
-    client.publish("zhc/heater/{}".format(h.identifier),
+    client.publish("zhc/heater/{}".format(heaters[k].identifier),
         payload=None, retain=True)
     del heaters[k]
 
